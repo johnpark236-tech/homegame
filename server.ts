@@ -5,7 +5,7 @@ import { KOREAN_QUESTIONS } from './src/data/questions';
 import { GameStatus, Player, RoomState, TeamId, GAME_CONSTANTS } from './src/types/game';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 
