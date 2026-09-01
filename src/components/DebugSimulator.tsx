@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { RoomState } from '../types/game';
 import { Play, CheckCircle2, RotateCcw, Zap, Terminal, Bug, Smartphone } from 'lucide-react';
+import { apiFetch } from '../utils/apiFetch';
 import { sound } from '../utils/sound';
 
 interface DebugSimulatorProps {
@@ -30,7 +31,7 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
     const botNick = `${team}팀봇_${existingCount + 1}`;
 
     try {
-      await fetch(`/api/rooms/${room.roomId}/join`, {
+      await apiFetch(`/api/rooms/${room.roomId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -69,14 +70,14 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
       addLog('PLAYER_ONE_START', 'PASS', '학생 1명만 참가해도 START 버튼 활성화 검증');
 
       // Add 2 bots for quick race testing (1 on Team A, 1 on Team B)
-      const resA = await fetch(`/api/rooms/${room.roomId}/join`, {
+      const resA = await apiFetch(`/api/rooms/${room.roomId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nickname: '테스트용', team: 'A' }),
       });
       const dataA = await resA.json();
 
-      const resB = await fetch(`/api/rooms/${room.roomId}/join`, {
+      const resB = await apiFetch(`/api/rooms/${room.roomId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nickname: '테스트호', team: 'B' }),
@@ -87,7 +88,7 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
       addLog('TEAM_CAPACITY', 'PASS', '팀당 최대 2명 정원 제한 정상 작동');
 
       // 5. HOST_START & COUNTDOWN_SYNC
-      const startRes = await fetch(`/api/rooms/${room.roomId}/start`, { method: 'POST' });
+      const startRes = await apiFetch(`/api/rooms/${room.roomId}/start`, { method: 'POST' });
       if (startRes.ok) {
         addLog('HOST_START', 'PASS', '교사 START 명령으로 3-2-1 카운트다운 시작');
         addLog('COUNTDOWN_SYNC', 'PASS', '전체 화면 3-2-1 카운트다운 실시간 동기화 확인');
@@ -103,7 +104,7 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
 
       if (pidA) {
         // Player A submits correct answer (index 1 for Question 1)
-        await fetch(`/api/rooms/${room.roomId}/answer`, {
+        await apiFetch(`/api/rooms/${room.roomId}/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId: pidA, answerIndex: 1, questionIndex: 0 }),
@@ -111,7 +112,7 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
       }
       if (pidB) {
         // Player B submits wrong answer (index 0 for Question 1)
-        await fetch(`/api/rooms/${room.roomId}/answer`, {
+        await apiFetch(`/api/rooms/${room.roomId}/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId: pidB, answerIndex: 0, questionIndex: 0 }),
@@ -128,7 +129,7 @@ export const DebugSimulator: React.FC<DebugSimulatorProps> = ({
       addLog('THREE_SECOND_TAP', 'PASS', '정답자 3초 타이머 및 터치 누적 연타 정상');
       if (pidA) {
         // Simulate rapid burst taps (60 taps to reach 100m)
-        await fetch(`/api/rooms/${room.roomId}/tap`, {
+        await apiFetch(`/api/rooms/${room.roomId}/tap`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ playerId: pidA, tapDelta: 60 }),

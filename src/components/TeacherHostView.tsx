@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { RoomState, Player } from '../types/game';
 import { KOREAN_QUESTIONS } from '../data/questions';
 import { RaceTrack } from './RaceTrack';
+import { apiFetch } from '../utils/apiFetch';
 import { sound } from '../utils/sound';
 import { BabyDragon } from './characters/BabyDragon';
 import { BabyTiger } from './characters/BabyTiger';
@@ -89,7 +90,7 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
     sound.playTap();
 
     try {
-      const res = await fetch(`/api/rooms/${room.roomId}/start`, {
+      const res = await apiFetch(`/api/rooms/${room.roomId}/start`, {
         method: 'POST',
       });
       const data = await res.json();
@@ -110,7 +111,7 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
     prevWinnerRef.current = null;
 
     try {
-      const res = await fetch(`/api/rooms/${room.roomId}/restart`, {
+      const res = await apiFetch(`/api/rooms/${room.roomId}/restart`, {
         method: 'POST',
       });
       const data = await res.json();

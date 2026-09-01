@@ -5,6 +5,7 @@ import { DebugSimulator } from './components/DebugSimulator';
 import { BabyDragon } from './components/characters/BabyDragon';
 import { BabyTiger } from './components/characters/BabyTiger';
 import { RoomState } from './types/game';
+import { apiFetch } from './utils/apiFetch';
 import { sound } from './utils/sound';
 import {
   Trophy,
@@ -44,7 +45,7 @@ export default function App() {
     sound.playTap();
 
     try {
-      const res = await fetch('/api/rooms/create', {
+      const res = await apiFetch('/api/rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

@@ -5,6 +5,7 @@ import { sound } from '../utils/sound';
 import { BabyDragon } from './characters/BabyDragon';
 import { BabyTiger } from './characters/BabyTiger';
 import { RaceTrack } from './RaceTrack';
+import { apiFetch } from '../utils/apiFetch';
 import {
   Users,
   Zap,
@@ -58,7 +59,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
 
   const reconnectSession = async (roomId: string, playerId: string) => {
     try {
-      const res = await fetch(`/api/rooms/${roomId}/join`, {
+      const res = await apiFetch(`/api/rooms/${roomId}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ existingPlayerId: playerId }),
@@ -133,7 +134,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
         const deltaToSend = pendingTapDeltaRef.current;
         pendingTapDeltaRef.current = 0;
 
-        fetch(`/api/rooms/${joinedRoom.roomId}/tap`, {
+        apiFetch(`/api/rooms/${joinedRoom.roomId}/tap`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -179,7 +180,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
     sound.playTap();
 
     try {
-      const res = await fetch(`/api/rooms/${cleanRoom}/join`, {
+      const res = await apiFetch(`/api/rooms/${cleanRoom}/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,7 +221,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
     sound.playTap();
 
     try {
-      const res = await fetch(`/api/rooms/${joinedRoom.roomId}/answer`, {
+      const res = await apiFetch(`/api/rooms/${joinedRoom.roomId}/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
