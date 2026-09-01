@@ -1,0 +1,6 @@
+{
+  "name": "Korean Animal Race",
+  "description": "만날 한국어 동물 달리기 게임 - 교사 PC와 학생 스마트폰이 함께하는 실시간 퀴즈 앤 탭 레이스 게임",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
