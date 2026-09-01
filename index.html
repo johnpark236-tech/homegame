@@ -1,1 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#fff7e8" />
+  <title>한국어 동물 달리기</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="top"><h1>🐲 한국어 동물 달리기 🐯</h1><p>Korean Animal Race · 4인 수업용 MVP</p></header>
 
+  <section id="home" class="card">
+    <h2>게임을 시작해요!</h2><p>교사는 방을 만들고, 학생은 교사 화면의 QR을 찍어 참가합니다.</p>
+    <div class="home-actions">
+      <button id="makeRoom" class="btn red">👩‍🏫 방 만들기<small>교사용 Host</small></button>
+      <button id="manualJoin" class="btn blue">📱 학생 참가<small>방 코드 입력</small></button>
+    </div>
+  </section>
+
+  <section id="manual" class="card hidden join"><h2>방 코드 입력</h2><input id="manualCode" maxlength="6" placeholder="예: A3K9QZ" autocomplete="off" /><button id="goManual" class="btn big">입장하기</button></section>
+
+  <section id="hostLobby" class="card hidden">
+    <div class="roomline"><strong>ROOM</strong><span id="roomCode" class="roomcode"></span></div><div id="qr"></div><p class="center">학생 휴대폰으로 QR을 찍으세요.</p>
+    <div class="players"><div class="team a"><h3>🐲 용 팀 <span id="aCount">0/2</span></h3><div id="aPlayers"></div></div><div class="team b"><h3>🐯 호랑이 팀 <span id="bCount">0/2</span></h3><div id="bPlayers"></div></div></div>
+    <p id="hostStatus" class="status">학생 접속을 기다리는 중...</p><button id="startGame" class="btn big" disabled>🏁 GAME START</button>
+  </section>
+
+  <section id="join" class="card hidden join">
+    <h2>게임 참가</h2><p>ROOM <strong id="joinRoom"></strong></p><label>닉네임</label><input id="nickname" maxlength="12" placeholder="이름을 입력하세요" />
+    <p><strong>팀을 선택하세요</strong></p><div class="team-pick"><button class="pick a" data-team="A"><span class="animal">🐲</span><br>용 팀<br><small id="joinACount">0/2</small></button><button class="pick b" data-team="B"><span class="animal">🐯</span><br>호랑이 팀<br><small id="joinBCount">0/2</small></button></div>
+    <p id="joinMsg" class="status"></p><button id="joinBtn" class="btn big" disabled>READY!</button>
+  </section>
+
+  <section id="waiting" class="card hidden center"><div id="myAnimal" class="animal">🐲</div><h2 id="myTeam">TEAM A</h2><h3 id="myName"></h3><p>친구들과 선생님을 기다리고 있어요.</p><div class="wait">⏳</div></section>
+  <section id="countdown" class="card hidden"><div id="countText" class="count">3</div></section>
+  <section id="playerQuestion" class="card hidden"><div id="pRound" class="round"></div><div id="pQuestion" class="question"></div><div id="pChoices" class="choices"></div><p id="answerMsg" class="answer-msg"></p></section>
+  <section id="tapScreen" class="card hidden"><div id="tapTimer" class="round">3.0초</div><div id="tapArea" class="tap-area"><div class="tapword">TAP!</div><div>빠르게 눌러주세요!</div><div id="tapCount" class="tapcount">0</div></div></section>
+  <section id="missScreen" class="card hidden center"><div class="hint">💡</div><h2>다음 문제를 준비하세요!</h2><p>이번 문제는 TAP 기회가 없습니다.</p></section>
+
+  <section id="hostRace" class="card hidden"><div id="hRound" class="round"></div><div id="hQuestion" class="question"></div>
+    <div class="track"><div id="runnerA" class="runner"><span class="animal running">🐲</span><span>용 팀</span></div></div><div id="metersA" class="meters">0.0m</div>
+    <div class="track"><div id="runnerB" class="runner"><span class="animal running">🐯</span><span>호랑이 팀</span></div></div><div id="metersB" class="meters">0.0m</div><p class="mini center">정답을 맞힌 학생이 3초간 연타하면 팀 캐릭터가 전진합니다.</p>
+  </section>
+
+  <section id="result" class="card hidden winner"><div class="cup">🏆</div><h2 id="winnerTitle"></h2><div id="winnerAnimal" class="animal">🐲</div><p id="resultText"></p><button id="restart" class="btn big">🔁 다시하기</button></section>
+  <div id="debug" class="debug hidden"></div>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
