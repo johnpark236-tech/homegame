@@ -4,7 +4,7 @@ import { StudentView } from './components/StudentView';
 import { DebugSimulator } from './components/DebugSimulator';
 import { BabyDragon } from './components/characters/BabyDragon';
 import { BabyTiger } from './components/characters/BabyTiger';
-import { RoomState } from './types/game';
+import { GameMode, RoomState } from './types/game';
 import { apiFetch } from './utils/apiFetch';
 import { sound } from './utils/sound';
 import {
@@ -25,6 +25,7 @@ export default function App() {
   const [urlRoomId, setUrlRoomId] = useState<string>('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [selectedGameMode, setSelectedGameMode] = useState<GameMode>('SYNC');
 
   // Check URL query parameters for student direct QR join or debug mode
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function App() {
       const res = await apiFetch('/api/rooms/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameMode: selectedGameMode }),
       });
       const data = await res.json();
 
@@ -127,12 +129,12 @@ export default function App() {
           <div className="w-full max-w-4xl space-y-6 py-2">
             {/* Title & Mascot Showcase */}
             <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-emerald-100 shadow-xl text-center space-y-3 relative overflow-hidden">
-              <div className="flex items-center justify-center gap-4 py-1">
-                <BabyDragon size={76} isRunning={true} />
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 py-1">
+                <BabyDragon size={160} variant="idle" className="sm:-mr-2 hover:scale-105 transition-transform" />
                 <div className="px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-200 font-black text-emerald-800 text-xs font-['Jua'] tracking-wide">
                   ⚡ 100m 골인을 향해 탭하여 달려라!
                 </div>
-                <BabyTiger size={76} isRunning={true} />
+                <BabyTiger size={160} variant="idle" className="sm:-ml-2 hover:scale-105 transition-transform" />
               </div>
 
               <h1 className="text-3xl sm:text-4xl font-black text-emerald-950 font-['Jua'] tracking-tight">
@@ -168,6 +170,54 @@ export default function App() {
                   <p className="text-xs sm:text-sm text-slate-600 leading-relaxed mb-6">
                     프로젝터나 PC에 100m 동물 달리기 트랙과 입장 QR 코드를 띄우고 실시간 경기를 진행합니다.
                   </p>
+
+                  <div className="mb-6 space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.18em]">
+                      진행 모드 선택
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <button
+                        id="select-sync-mode-btn"
+                        type="button"
+                        onClick={() => {
+                          setSelectedGameMode('SYNC');
+                          sound.playTap();
+                        }}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all ${
+                          selectedGameMode === 'SYNC'
+                            ? 'bg-emerald-50 border-emerald-500 ring-2 ring-emerald-200'
+                            : 'bg-slate-50 border-slate-200 hover:border-emerald-200'
+                        }`}
+                      >
+                        <span className="block text-sm font-black text-emerald-950 font-['Jua']">
+                          모드 1: 함께 풀기
+                        </span>
+                        <span className="block text-[11px] font-bold text-slate-500 mt-1 leading-snug">
+                          모두 같은 문제를 풀고 정답자만 함께 3초 탭
+                        </span>
+                      </button>
+                      <button
+                        id="select-solo-mode-btn"
+                        type="button"
+                        onClick={() => {
+                          setSelectedGameMode('SOLO');
+                          sound.playTap();
+                        }}
+                        className={`p-3 rounded-2xl border-2 text-left transition-all ${
+                          selectedGameMode === 'SOLO'
+                            ? 'bg-orange-50 border-orange-500 ring-2 ring-orange-200'
+                            : 'bg-slate-50 border-slate-200 hover:border-orange-200'
+                        }`}
+                      >
+                        <span className="block text-sm font-black text-orange-950 font-['Jua']">
+                          모드 2: 각자 달리기
+                        </span>
+                        <span className="block text-[11px] font-bold text-slate-500 mt-1 leading-snug">
+                          학생별로 문제 진행, 정답이면 탭, 오답이면 다음 문제
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <button

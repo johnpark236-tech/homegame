@@ -1,4 +1,5 @@
 export type TeamId = 'A' | 'B';
+export type GameMode = 'SYNC' | 'SOLO';
 
 export interface CharacterConfig {
   id: string;
@@ -21,6 +22,9 @@ export interface Player {
   answeredCurrentQuestion?: boolean;
   selectedAnswerIndex?: number;
   isCorrect?: boolean;
+  currentQuestionIndex?: number;
+  soloTapPhaseEndTime?: number | null;
+  soloFinished?: boolean;
 }
 
 export interface Question {
@@ -51,6 +55,7 @@ export interface RoomState {
   hostId: string;
   createdAt: number;
   status: GameStatus;
+  gameMode: GameMode;
   maxPlayers: number;
   players: Record<string, Player>;
   currentQuestionIndex: number;

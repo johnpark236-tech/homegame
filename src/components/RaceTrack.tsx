@@ -12,6 +12,8 @@ interface RaceTrackProps {
 export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }) => {
   const distA = Math.min(100, Math.max(0, room.teamScores.A.distance));
   const distB = Math.min(100, Math.max(0, room.teamScores.B.distance));
+  const runnerSize = isHostView ? 170 : 132;
+  const laneHeight = isHostView ? 172 : 132;
 
   const playersList = Object.values(room.players || {}) as Player[];
   const playersA = playersList.filter((p) => p.team === 'A');
@@ -44,11 +46,11 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
 
         {/* Distance Indicator Badges */}
         <div className="flex items-center gap-2.5 text-xs font-mono font-black">
-          <span className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 shadow-2xs">
-            🐲 Dragon: {distA.toFixed(1)}m ({room.teamScores.A.taps} 탭)
+          <span className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 shadow-2xs inline-flex items-center gap-1.5">
+            <BabyDragon size={32} variant="idle" /> Dragon: {distA.toFixed(1)}m ({room.teamScores.A.taps} 탭)
           </span>
-          <span className="px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 shadow-2xs">
-            🐯 Tiger: {distB.toFixed(1)}m ({room.teamScores.B.taps} 탭)
+          <span className="px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200 text-orange-900 shadow-2xs inline-flex items-center gap-1.5">
+            <BabyTiger size={32} variant="idle" /> Tiger: {distB.toFixed(1)}m ({room.teamScores.B.taps} 탭)
           </span>
         </div>
       </div>
@@ -75,7 +77,7 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
                 LANE 01
               </span>
               <span className="text-sm font-bold text-blue-950 font-['Jua'] flex items-center gap-1">
-                🐲 아기 용 (A팀)
+                <BabyDragon size={34} variant="idle" /> 아기 용 (A팀)
               </span>
               <div className="flex items-center gap-1">
                 {playersA.map((p) => (
@@ -97,7 +99,10 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
           </div>
 
           {/* Lane Roadway */}
-          <div className="relative h-20 bg-slate-50 rounded-xl border border-slate-200 flex items-center overflow-hidden px-4">
+          <div
+            className="relative bg-slate-50 rounded-xl border border-slate-200 flex items-center overflow-hidden px-4"
+            style={{ height: laneHeight }}
+          >
             {/* Lane watermark index */}
             <span className="absolute left-6 text-slate-200 font-black text-6xl italic select-none pointer-events-none">
               01
@@ -128,7 +133,7 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
             <div
               className="absolute top-1/2 -translate-y-1/2 transition-all duration-300 ease-out z-10 flex items-center"
               style={{
-                left: `calc(12px + (${distA} * (100% - 80px) / 100))`,
+                left: `calc(8px + (${distA} * (100% - ${runnerSize + 44}px) / 100))`,
               }}
             >
               {isRacing && (
@@ -136,7 +141,8 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
               )}
               <BabyDragon
                 isRunning={isRacing || distA > 0}
-                size={isHostView ? 64 : 54}
+                size={runnerSize}
+                variant={room.winner === 'A' ? 'win' : isRacing || distA > 0 ? 'run' : 'idle'}
                 className="hover:scale-110 transition-transform"
               />
             </div>
@@ -152,7 +158,7 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
                 LANE 02
               </span>
               <span className="text-sm font-bold text-orange-950 font-['Jua'] flex items-center gap-1">
-                🐯 아기 호랑이 (B팀)
+                <BabyTiger size={34} variant="idle" /> 아기 호랑이 (B팀)
               </span>
               <div className="flex items-center gap-1">
                 {playersB.map((p) => (
@@ -174,7 +180,10 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
           </div>
 
           {/* Lane Roadway */}
-          <div className="relative h-20 bg-slate-50 rounded-xl border border-slate-200 flex items-center overflow-hidden px-4">
+          <div
+            className="relative bg-slate-50 rounded-xl border border-slate-200 flex items-center overflow-hidden px-4"
+            style={{ height: laneHeight }}
+          >
             {/* Lane watermark index */}
             <span className="absolute left-6 text-slate-200 font-black text-6xl italic select-none pointer-events-none">
               02
@@ -205,7 +214,7 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
             <div
               className="absolute top-1/2 -translate-y-1/2 transition-all duration-300 ease-out z-10 flex items-center"
               style={{
-                left: `calc(12px + (${distB} * (100% - 80px) / 100))`,
+                left: `calc(8px + (${distB} * (100% - ${runnerSize + 44}px) / 100))`,
               }}
             >
               {isRacing && (
@@ -213,7 +222,8 @@ export const RaceTrack: React.FC<RaceTrackProps> = ({ room, isHostView = false }
               )}
               <BabyTiger
                 isRunning={isRacing || distB > 0}
-                size={isHostView ? 64 : 54}
+                size={runnerSize}
+                variant={room.winner === 'B' ? 'win' : isRacing || distB > 0 ? 'run' : 'idle'}
                 className="hover:scale-110 transition-transform"
               />
             </div>

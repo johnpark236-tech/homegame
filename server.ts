@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { KOREAN_QUESTIONS } from './src/data/questions';
-import { GameStatus, Player, RoomState, TeamId, GAME_CONSTANTS } from './src/types/game';
+import { GameMode, Player, RoomState, TeamId, GAME_CONSTANTS } from './src/types/game';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -47,6 +47,100 @@ function generateRoomId(): string {
   return id;
 }
 
+function normalizeGameMode(mode: unknown): GameMode {
+  return mode === 'SOLO' ? 'SOLO' : 'SYNC';
+}
+
+function resetPlayerRoundState(player: Player) {
+  player.answeredCurrentQuestion = false;
+  player.selectedAnswerIndex = undefined;
+  player.isCorrect = undefined;
+  player.currentQuestionIndex = 0;
+  player.soloTapPhaseEndTime = null;
+  player.soloFinished = false;
+}
+
+function updateTeamDistance(room: RoomState, team: TeamId) {
+  const totalTeamTaps = room.teamScores[team].taps;
+  const rawDistance = (totalTeamTaps / GAME_CONSTANTS.RACE_TARGET_TAPS) * GAME_CONSTANTS.RACE_DISTANCE;
+  room.teamScores[team].distance = Math.min(
+    GAME_CONSTANTS.RACE_DISTANCE,
+    Math.round(rawDistance * 10) / 10
+  );
+}
+
+function declareWinnerIfFinished(roomId: string, room: RoomState, team?: TeamId): boolean {
+  if (room.winner) return true;
+
+  const distA = room.teamScores.A.distance;
+  const distB = room.teamScores.B.distance;
+
+  if (team && room.teamScores[team].distance >= GAME_CONSTANTS.RACE_DISTANCE) {
+    room.status = 'GAME_OVER';
+    room.winner = team;
+    room.winnerDeclaredAt = Date.now();
+    broadcastRoomState(roomId, 'WINNER_REACHED_GOAL');
+    return true;
+  }
+
+  if (distA >= GAME_CONSTANTS.RACE_DISTANCE || distB >= GAME_CONSTANTS.RACE_DISTANCE) {
+    room.status = 'GAME_OVER';
+    if (distA >= GAME_CONSTANTS.RACE_DISTANCE && distB >= GAME_CONSTANTS.RACE_DISTANCE) {
+      room.winner = distA > distB ? 'A' : distB > distA ? 'B' : 'DRAW';
+    } else {
+      room.winner = distA >= GAME_CONSTANTS.RACE_DISTANCE ? 'A' : 'B';
+    }
+    room.winnerDeclaredAt = Date.now();
+    broadcastRoomState(roomId, 'GAME_OVER');
+    return true;
+  }
+
+  return false;
+}
+
+function finishRoomByDistance(roomId: string, room: RoomState) {
+  room.status = 'GAME_OVER';
+  const distA = room.teamScores.A.distance;
+  const distB = room.teamScores.B.distance;
+  room.winner = distA > distB ? 'A' : distB > distA ? 'B' : 'DRAW';
+  room.winnerDeclaredAt = Date.now();
+  broadcastRoomState(roomId, 'GAME_OVER');
+}
+
+function advanceSoloPlayer(roomId: string, room: RoomState, player: Player, eventName: string) {
+  if (room.status !== 'QUESTION' || room.gameMode !== 'SOLO' || room.winner) return;
+
+  const currentIndex = player.currentQuestionIndex ?? 0;
+  player.answeredCurrentQuestion = false;
+  player.selectedAnswerIndex = undefined;
+  player.isCorrect = undefined;
+  player.soloTapPhaseEndTime = null;
+  player.lastActive = Date.now();
+
+  if (currentIndex >= KOREAN_QUESTIONS.length - 1) {
+    player.soloFinished = true;
+  } else {
+    player.currentQuestionIndex = currentIndex + 1;
+  }
+
+  const allPlayers = Object.values(room.players);
+  if (allPlayers.length > 0 && allPlayers.every((p) => p.soloFinished)) {
+    finishRoomByDistance(roomId, room);
+    return;
+  }
+
+  broadcastRoomState(roomId, eventName);
+}
+
+function endSoloTapPhase(roomId: string, playerId: string) {
+  const room = rooms.get(roomId);
+  const player = room?.players[playerId];
+  if (!room || !player || room.gameMode !== 'SOLO' || room.status !== 'QUESTION') return;
+  if (!player.isCorrect || !player.soloTapPhaseEndTime || Date.now() < player.soloTapPhaseEndTime) return;
+
+  advanceSoloPlayer(roomId, room, player, 'SOLO_NEXT_QUESTION');
+}
+
 // Clean up inactive rooms older than 4 hours
 setInterval(() => {
   const now = Date.now();
@@ -67,12 +161,15 @@ app.post('/api/rooms/create', (req: Request, res: Response) => {
     roomId = generateRoomId();
   }
 
+  const gameMode = normalizeGameMode(req.body?.gameMode);
+
   const newRoom: RoomState = {
     roomId,
     roundId: `r1_${Date.now()}`,
     hostId: `host_${Date.now()}`,
     createdAt: Date.now(),
     status: 'WAITING',
+    gameMode,
     maxPlayers: GAME_CONSTANTS.MAX_PLAYERS,
     players: {},
     currentQuestionIndex: 0,
@@ -93,7 +190,7 @@ app.post('/api/rooms/create', (req: Request, res: Response) => {
   rooms.set(roomId, newRoom);
   roomSubscribers.set(roomId, new Set());
 
-  console.log(`[Room Created] ID: ${roomId}`);
+  console.log(`[Room Created] ID: ${roomId}, Mode: ${gameMode}`);
   res.json({ success: true, room: newRoom });
 });
 
@@ -208,6 +305,9 @@ app.post('/api/rooms/:roomId/join', (req: Request, res: Response) => {
     taps: 0,
     lastActive: Date.now(),
     answeredCurrentQuestion: false,
+    currentQuestionIndex: 0,
+    soloTapPhaseEndTime: null,
+    soloFinished: false,
   };
 
   room.players[newPlayerId] = newPlayer;
@@ -233,14 +333,20 @@ app.post('/api/rooms/:roomId/start', (req: Request, res: Response) => {
 
   // Reset players question state
   for (const pid in room.players) {
-    room.players[pid].answeredCurrentQuestion = false;
-    room.players[pid].selectedAnswerIndex = undefined;
-    room.players[pid].isCorrect = undefined;
+    resetPlayerRoundState(room.players[pid]);
+    room.players[pid].taps = 0;
   }
 
   room.status = 'COUNTDOWN';
   room.countdownValue = 3;
   room.currentQuestionIndex = 0;
+  room.tapPhaseEndTime = null;
+  room.winner = null;
+  room.winnerDeclaredAt = null;
+  room.teamScores = {
+    A: { taps: 0, distance: 0 },
+    B: { taps: 0, distance: 0 },
+  };
   broadcastRoomState(roomId, 'COUNTDOWN_STARTED');
 
   // Synchronized countdown timer: 3 -> 2 -> 1 -> QUESTION
@@ -289,7 +395,18 @@ app.post('/api/rooms/:roomId/answer', (req: Request, res: Response) => {
     return res.status(400).json({ error: '이미 답을 제출하셨습니다.' });
   }
 
-  const currentQ = KOREAN_QUESTIONS[room.currentQuestionIndex];
+  const activeQuestionIndex =
+    room.gameMode === 'SOLO' ? player.currentQuestionIndex ?? 0 : room.currentQuestionIndex;
+
+  if (Number(questionIndex) !== activeQuestionIndex) {
+    return res.status(409).json({ error: '현재 문제 번호가 맞지 않습니다. 화면을 새로고침해 주세요.' });
+  }
+
+  if (room.gameMode === 'SOLO' && player.soloFinished) {
+    return res.status(400).json({ error: '이미 모든 문제를 완료했습니다.' });
+  }
+
+  const currentQ = KOREAN_QUESTIONS[activeQuestionIndex];
   if (!currentQ) {
     return res.status(400).json({ error: '문제를 찾을 수 없습니다.' });
   }
@@ -299,6 +416,20 @@ app.post('/api/rooms/:roomId/answer', (req: Request, res: Response) => {
   player.selectedAnswerIndex = Number(answerIndex);
   player.isCorrect = isCorrect;
   player.lastActive = Date.now();
+
+  if (room.gameMode === 'SOLO') {
+    if (isCorrect) {
+      player.soloTapPhaseEndTime = Date.now() + GAME_CONSTANTS.TAP_DURATION_MS;
+      broadcastRoomState(roomId, 'SOLO_TAP_PHASE_STARTED');
+      setTimeout(() => {
+        endSoloTapPhase(roomId, playerId);
+      }, GAME_CONSTANTS.TAP_DURATION_MS + 200);
+    } else {
+      advanceSoloPlayer(roomId, room, player, 'SOLO_WRONG_NEXT_QUESTION');
+    }
+
+    return res.json({ success: true, isCorrect, correctIndex: currentQ.correctIndex, room });
+  }
 
   // Check if all joined players have answered
   const allPlayers = Object.values(room.players);
@@ -332,6 +463,13 @@ function initiateTapPhase(roomId: string) {
 // Host force trigger next phase (in case student took too long)
 app.post('/api/rooms/:roomId/force-tap-phase', (req: Request, res: Response) => {
   const roomId = (req.params.roomId || '').toUpperCase();
+  const room = rooms.get(roomId);
+  if (!room) {
+    return res.status(404).json({ error: '존재하지 않는 방 번호입니다.' });
+  }
+  if (room.gameMode === 'SOLO') {
+    return res.status(400).json({ error: '모드 2에서는 학생별로 탭 시간이 시작됩니다.' });
+  }
   initiateTapPhase(roomId);
   res.json({ success: true });
 });
@@ -406,15 +544,22 @@ app.post('/api/rooms/:roomId/tap', (req: Request, res: Response) => {
     return res.status(404).json({ error: '존재하지 않는 방 번호입니다.' });
   }
 
-  if (room.status !== 'TAP_PHASE') {
-    return res.status(400).json({ error: '현재 탭 연타 시간이 아닙니다.' });
-  }
-
   const { playerId, tapDelta } = req.body;
   const player = room.players[playerId];
 
   if (!player) {
     return res.status(404).json({ error: '등록되지 않은 참가자입니다.' });
+  }
+
+  const isSoloTapPhase =
+    room.gameMode === 'SOLO' &&
+    room.status === 'QUESTION' &&
+    player.isCorrect &&
+    Boolean(player.soloTapPhaseEndTime) &&
+    Date.now() <= Number(player.soloTapPhaseEndTime);
+
+  if (room.status !== 'TAP_PHASE' && !isSoloTapPhase) {
+    return res.status(400).json({ error: '현재 탭 연타 시간이 아닙니다.' });
   }
 
   // Only allow TAP if student answered current question correctly
@@ -434,19 +579,10 @@ app.post('/api/rooms/:roomId/tap', (req: Request, res: Response) => {
 
   const team = player.team;
   room.teamScores[team].taps += delta;
-
-  // Calculate distance: 60 taps = 100 meters
-  const totalTeamTaps = room.teamScores[team].taps;
-  const rawDistance = (totalTeamTaps / GAME_CONSTANTS.RACE_TARGET_TAPS) * GAME_CONSTANTS.RACE_DISTANCE;
-  room.teamScores[team].distance = Math.min(GAME_CONSTANTS.RACE_DISTANCE, Math.round(rawDistance * 10) / 10);
+  updateTeamDistance(room, team);
 
   // Check if this tap crossed 100m finish line first
-  if (room.teamScores[team].distance >= GAME_CONSTANTS.RACE_DISTANCE && !room.winner) {
-    room.status = 'GAME_OVER';
-    room.winner = team;
-    room.winnerDeclaredAt = Date.now();
-    broadcastRoomState(roomId, 'WINNER_REACHED_GOAL');
-  } else {
+  if (!declareWinnerIfFinished(roomId, room, team)) {
     broadcastRoomState(roomId, 'TAP_UPDATED');
   }
 
@@ -482,9 +618,7 @@ app.post('/api/rooms/:roomId/restart', (req: Request, res: Response) => {
 
   for (const pid in room.players) {
     room.players[pid].taps = 0;
-    room.players[pid].answeredCurrentQuestion = false;
-    room.players[pid].selectedAnswerIndex = undefined;
-    room.players[pid].isCorrect = undefined;
+    resetPlayerRoundState(room.players[pid]);
   }
 
   broadcastRoomState(roomId, 'GAME_RESTARTED');

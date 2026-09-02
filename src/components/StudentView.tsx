@@ -43,6 +43,19 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
   const pendingTapDeltaRef = useRef<number>(0);
   const tapIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastQuestionIndexRef = useRef<number>(-1);
+  const isSoloMode = joinedRoom?.gameMode === 'SOLO';
+  const playerQuestionIndex = isSoloMode
+    ? player?.currentQuestionIndex ?? 0
+    : joinedRoom?.currentQuestionIndex ?? 0;
+  const currentQuestion = joinedRoom ? KOREAN_QUESTIONS[playerQuestionIndex] : null;
+  const soloTapPhaseActive = Boolean(
+    isSoloMode &&
+      joinedRoom?.status === 'QUESTION' &&
+      player?.isCorrect &&
+      player?.soloTapPhaseEndTime &&
+      Date.now() <= player.soloTapPhaseEndTime
+  );
+  const canTapNow = joinedRoom?.status === 'TAP_PHASE' || soloTapPhaseActive;
 
   // Check localStorage for existing session recovery
   useEffect(() => {
@@ -86,13 +99,19 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
         setJoinedRoom(updatedRoom);
 
         // Sync player data
-        if (player && updatedRoom.players[player.id]) {
-          setPlayer(updatedRoom.players[player.id]);
+        const updatedPlayer = player && updatedRoom.players[player.id] ? updatedRoom.players[player.id] : null;
+        if (updatedPlayer) {
+          setPlayer(updatedPlayer);
         }
 
         // Reset local answer/tap states when moving to next question or countdown
-        if (updatedRoom.currentQuestionIndex !== lastQuestionIndexRef.current) {
-          lastQuestionIndexRef.current = updatedRoom.currentQuestionIndex;
+        const updatedQuestionIndex =
+          updatedRoom.gameMode === 'SOLO' && updatedPlayer
+            ? updatedPlayer.currentQuestionIndex ?? 0
+            : updatedRoom.currentQuestionIndex;
+
+        if (updatedQuestionIndex !== lastQuestionIndexRef.current) {
+          lastQuestionIndexRef.current = updatedQuestionIndex;
           setSelectedChoice(null);
           setAnswerResult(null);
           setLocalTapCount(0);
@@ -121,7 +140,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
 
   // Periodic batch flush for local rapid taps (every 150ms)
   useEffect(() => {
-    if (!joinedRoom || joinedRoom.status !== 'TAP_PHASE' || !player || !player.isCorrect) {
+    if (!joinedRoom || !canTapNow || !player || !player.isCorrect) {
       if (tapIntervalRef.current) {
         clearInterval(tapIntervalRef.current);
         tapIntervalRef.current = null;
@@ -153,7 +172,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
         tapIntervalRef.current = null;
       }
     };
-  }, [joinedRoom?.status, joinedRoom?.roomId, player?.id, player?.isCorrect]);
+  }, [canTapNow, joinedRoom?.roomId, player?.id, player?.isCorrect]);
 
   // Handle Joining Room
   const handleJoin = async (e: React.FormEvent) => {
@@ -227,7 +246,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
         body: JSON.stringify({
           playerId: player.id,
           answerIndex: index,
-          questionIndex: joinedRoom.currentQuestionIndex,
+          questionIndex: playerQuestionIndex,
         }),
       });
 
@@ -257,16 +276,14 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
   const handleTap = useCallback(
     (e: React.PointerEvent) => {
       e.preventDefault();
-      if (!joinedRoom || joinedRoom.status !== 'TAP_PHASE' || !player?.isCorrect) return;
+      if (!joinedRoom || !canTapNow || !player?.isCorrect) return;
 
       sound.playTap();
       setLocalTapCount((prev) => prev + 1);
       pendingTapDeltaRef.current += 1;
     },
-    [joinedRoom?.status, player?.isCorrect]
+    [canTapNow, player?.isCorrect]
   );
-
-  const currentQuestion = joinedRoom ? KOREAN_QUESTIONS[joinedRoom.currentQuestionIndex] : null;
 
   // ======================== RENDER 1: ENTRY / LOGIN SCREEN ========================
   if (!joinedRoom || !player) {
@@ -344,9 +361,9 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
-                <BabyDragon size={40} isRunning={selectedTeam === 'A'} />
+                <BabyDragon size={96} variant={selectedTeam === 'A' ? 'run' : 'idle'} isRunning={selectedTeam === 'A'} />
                 <span className="font-bold text-xs text-blue-950 font-['Jua']">
-                  A팀: 아기 용 🐉
+                  A팀: 아기 용
                 </span>
               </button>
 
@@ -364,9 +381,9 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
                     : 'border-slate-200 bg-white hover:border-slate-300'
                 }`}
               >
-                <BabyTiger size={40} isRunning={selectedTeam === 'B'} />
+                <BabyTiger size={96} variant={selectedTeam === 'B' ? 'run' : 'idle'} isRunning={selectedTeam === 'B'} />
                 <span className="font-bold text-xs text-orange-950 font-['Jua']">
-                  B팀: 아기 호랑이 🐯
+                  B팀: 아기 호랑이
                 </span>
               </button>
             </div>
@@ -410,9 +427,9 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
           }`}
         >
           {isTeamA ? (
-            <BabyDragon size={80} isRunning={true} />
+            <BabyDragon size={160} variant="run" isRunning={true} />
           ) : (
-            <BabyTiger size={80} isRunning={true} />
+            <BabyTiger size={160} variant="run" isRunning={true} />
           )}
 
           <div className="mt-3">
@@ -421,7 +438,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
                 isTeamA ? 'bg-blue-600 text-white' : 'bg-orange-500 text-white'
               }`}
             >
-              {isTeamA ? 'A팀 : 아기 용 🐉' : 'B팀 : 아기 호랑이 🐯'}
+              {isTeamA ? 'A팀 : 아기 용' : 'B팀 : 아기 호랑이'}
             </span>
             <p className="text-xs text-slate-600 mt-2 font-medium">
               선생님이 <span className="font-bold text-emerald-700">START</span>를 누르면 문제가 시작됩니다.
@@ -471,15 +488,35 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
     );
   }
 
+  if (isSoloMode && joinedRoom.status === 'QUESTION' && player.soloFinished) {
+    return (
+      <div className="w-full max-w-md mx-auto space-y-4 text-center">
+        <div className="bg-white rounded-3xl p-6 border-2 border-emerald-100 shadow-xl space-y-3">
+          <span className="text-xs px-3 py-1 rounded-full bg-orange-100 text-orange-800 font-bold">
+            모드 2 개인 문제 완료
+          </span>
+          <h2 className="text-2xl font-black text-emerald-950 font-['Jua']">
+            모든 문제를 풀었어요!
+          </h2>
+          <p className="text-xs text-slate-600">
+            다른 친구들의 진행이 끝나거나 100m 결승에 도착하면 결과가 나옵니다.
+          </p>
+        </div>
+
+        <RaceTrack room={joinedRoom} isHostView={false} />
+      </div>
+    );
+  }
+
   // ======================== RENDER 4: QUESTION PHASE ========================
-  if (joinedRoom.status === 'QUESTION') {
+  if (joinedRoom.status === 'QUESTION' && !soloTapPhaseActive) {
     return (
       <div className="w-full max-w-md mx-auto space-y-4">
         {/* Question Header Card */}
         <div className="bg-white rounded-3xl p-5 sm:p-6 border-2 border-emerald-100 shadow-xl">
           <div className="flex items-center justify-between mb-3">
             <span className="px-3.5 py-1.5 rounded-2xl bg-emerald-600 text-white font-black text-xs">
-              문제 {joinedRoom.currentQuestionIndex + 1} / {joinedRoom.totalQuestions}
+              문제 {playerQuestionIndex + 1} / {joinedRoom.totalQuestions}
             </span>
             <span className="text-xs font-bold text-slate-500">
               {currentQuestion?.category}
@@ -531,7 +568,11 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
 
           {selectedChoice !== null && (
             <div className="mt-4 p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-center text-xs font-bold text-emerald-900 animate-pulse">
-              답을 제출했습니다. 다른 학생들의 답변을 기다리는 중...
+              {isSoloMode
+                ? answerResult?.isCorrect
+                  ? '정답입니다. 3초 탭 화면으로 이동합니다!'
+                  : '오답입니다. 다음 문제로 이동합니다.'
+                : '답을 제출했습니다. 다른 학생들의 답변을 기다리는 중...'}
             </div>
           )}
         </div>
@@ -543,7 +584,7 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
   }
 
   // ======================== RENDER 5: 3-SECOND TAP PHASE ========================
-  if (joinedRoom.status === 'TAP_PHASE') {
+  if (joinedRoom.status === 'TAP_PHASE' || soloTapPhaseActive) {
     const isCorrect = player.isCorrect;
 
     return (
@@ -608,7 +649,9 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
                 아쉬워요! 오답입니다 😢
               </h3>
               <p className="text-xs text-slate-500 mt-1">
-                정답자 친구들이 3초 동안 달리고 있어요. 다음 문제에 도전하세요!
+                {isSoloMode
+                  ? '바로 다음 문제로 이동합니다!'
+                  : '정답자 친구들이 3초 동안 달리고 있어요. 다음 문제에 도전하세요!'}
               </p>
             </div>
 
@@ -679,9 +722,9 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
         {/* Character Illustration */}
         <div className="flex justify-center py-2">
           {player.team === 'A' ? (
-            <BabyDragon size={100} isRunning={isWinner} />
+            <BabyDragon size={190} variant={isWinner ? 'win' : 'idle'} isRunning={isWinner} />
           ) : (
-            <BabyTiger size={100} isRunning={isWinner} />
+            <BabyTiger size={190} variant={isWinner ? 'win' : 'idle'} isRunning={isWinner} />
           )}
         </div>
 

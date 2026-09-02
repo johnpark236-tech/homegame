@@ -140,6 +140,8 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
   const currentQuestion = KOREAN_QUESTIONS[room.currentQuestionIndex];
 
   const playersAnsweredCount = playersList.filter((p) => p.answeredCurrentQuestion).length;
+  const isSoloMode = room.gameMode === 'SOLO';
+  const modeLabel = isSoloMode ? '모드 2: 각자 달리기' : '모드 1: 함께 풀기';
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -154,12 +156,12 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
               <h1 className="text-xl sm:text-2xl font-black text-emerald-900 font-['Jua'] tracking-tight">
                 교사 경기 진행 대시보드
               </h1>
-              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black uppercase tracking-wider">
-                LIVE SYNC
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black tracking-wider">
+                {modeLabel}
               </span>
             </div>
             <p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">
-              Teacher Dashboard v1.0 • 학생 스마트폰 실시간 연동
+              Teacher Dashboard v1.0 • {isSoloMode ? '학생별 개인 진행' : '학생 스마트폰 실시간 연동'}
             </p>
           </div>
         </div>
@@ -258,7 +260,7 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
                       className="flex items-center justify-between p-3 bg-blue-50 rounded-2xl border border-blue-100 shadow-2xs"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">🐲</span>
+                        <BabyDragon size={54} variant="idle" />
                         <div>
                           <span className="font-bold text-sm text-blue-950 block">
                             {p.nickname}
@@ -283,7 +285,7 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
                       className="flex items-center justify-between p-3 bg-orange-50 rounded-2xl border border-orange-100 shadow-2xs"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">🐯</span>
+                        <BabyTiger size={54} variant="idle" />
                         <div>
                           <span className="font-bold text-sm text-orange-950 block">
                             {p.nickname}
@@ -361,8 +363,11 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
                   </span>
                 </div>
                 <p className="text-slate-600 text-xs leading-relaxed">
-                  학생들이 정답을 맞추면 3초 동안 화면을 연타할 수 있습니다. <br />
-                  연타 횟수가 합산되어 동물의 전진 거리가 됩니다. (최초 100m 도달 시 승리)
+                  {isSoloMode
+                    ? '각 학생은 자기 화면에서 문제를 따로 진행합니다. 정답이면 3초 탭, 오답이면 바로 다음 문제로 이동합니다.'
+                    : '학생들이 정답을 맞추면 3초 동안 화면을 연타할 수 있습니다.'}
+                  <br />
+                  연타 횟수가 팀별로 합산되어 동물의 전진 거리가 됩니다. (최초 100m 도달 시 승리)
                 </p>
               </div>
             </div>
@@ -441,66 +446,137 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
         <div className="space-y-6">
           {/* Question Banner for Classroom Projector */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-emerald-100 shadow-xl relative overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-3">
-                <span className="px-3.5 py-1.5 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-wider">
-                  문제 {room.currentQuestionIndex + 1} / {room.totalQuestions}
-                </span>
-                <span className="px-3.5 py-1.5 rounded-2xl bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200">
-                  {currentQuestion?.category}
-                </span>
-              </div>
-
-              {/* Status Badge */}
-              <div className="flex items-center gap-2">
-                {room.status === 'QUESTION' && (
-                  <span className="text-xs px-3.5 py-1.5 rounded-full bg-blue-100 text-blue-900 font-bold flex items-center gap-1.5 animate-pulse border border-blue-200">
-                    <Clock className="w-3.5 h-3.5 text-blue-600" />
-                    학생 답변 중 ({playersAnsweredCount}/{playerCount}명 완료)
-                  </span>
-                )}
-                {room.status === 'TAP_PHASE' && (
-                  <span className="text-xs px-3.5 py-1.5 rounded-full bg-rose-500 text-white font-black flex items-center gap-1.5 animate-bounce shadow-md shadow-rose-200">
-                    <Zap className="w-3.5 h-3.5" />
-                    ⚡ 3초 연타 시간! TAP TAP!
-                  </span>
-                )}
-                {room.status === 'ROUND_RESULT' && (
-                  <span className="text-xs px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 font-black border border-emerald-200">
-                    결과 집계 중 → 다음 문제 준비
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Big Question Prompt */}
-            <h2 className="text-2xl sm:text-3xl font-black text-emerald-950 font-['Jua'] leading-snug mb-6">
-              {currentQuestion?.prompt}
-            </h2>
-
-            {/* 4 Choices Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              {currentQuestion?.options.map((opt, idx) => {
-                const isCorrect = idx === currentQuestion.correctIndex;
-                const showAnswer = room.status === 'TAP_PHASE' || room.status === 'ROUND_RESULT';
-
-                return (
-                  <div
-                    key={idx}
-                    className={`p-4 rounded-2xl border-2 font-bold text-center text-sm transition-all flex flex-col items-center justify-center min-h-[72px] ${
-                      showAnswer && isCorrect
-                        ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-102'
-                        : 'bg-slate-50 border-slate-200 text-slate-800'
-                    }`}
-                  >
-                    <span className="text-[10px] opacity-70 block mb-0.5 uppercase tracking-wider font-mono">
-                      Choice 0{idx + 1}
+            {isSoloMode ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                  <div>
+                    <span className="px-3.5 py-1.5 rounded-2xl bg-orange-500 text-white font-black text-xs tracking-wider">
+                      모드 2: 각자 달리기
                     </span>
-                    <span className="text-base">{opt}</span>
+                    <h2 className="text-2xl sm:text-3xl font-black text-emerald-950 font-['Jua'] leading-snug mt-4">
+                      학생별로 문제를 풀고 있습니다.
+                    </h2>
                   </div>
-                );
-              })}
-            </div>
+                  <span className="text-xs px-3.5 py-1.5 rounded-full bg-orange-100 text-orange-900 font-bold flex items-center gap-1.5 border border-orange-200">
+                    <Clock className="w-3.5 h-3.5 text-orange-600" />
+                    개인 진행 현황
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {playersList.map((p) => {
+                    const questionNumber = (p.currentQuestionIndex ?? 0) + 1;
+                    const isTapping = Boolean(
+                      p.isCorrect &&
+                        p.soloTapPhaseEndTime &&
+                        Date.now() <= p.soloTapPhaseEndTime
+                    );
+
+                    return (
+                      <div
+                        key={p.id}
+                        className={`p-4 rounded-2xl border-2 ${
+                          p.team === 'A'
+                            ? 'bg-blue-50 border-blue-100'
+                            : 'bg-orange-50 border-orange-100'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          {p.team === 'A' ? (
+                            <BabyDragon size={54} variant={isTapping ? 'run' : 'idle'} />
+                          ) : (
+                            <BabyTiger size={54} variant={isTapping ? 'run' : 'idle'} />
+                          )}
+                          <div>
+                            <span className="block text-sm font-black text-slate-900">
+                              {p.nickname}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {p.team === 'A' ? '용팀' : '호랑이팀'} · {p.taps} 탭
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xs font-black text-slate-700">
+                          {p.soloFinished ? '문제 완료' : `문제 ${questionNumber} / ${room.totalQuestions}`}
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-500 mt-1">
+                          {p.soloFinished
+                            ? '결승 결과 대기'
+                            : isTapping
+                            ? '정답! 3초 탭 중'
+                            : p.answeredCurrentQuestion
+                            ? '답안 처리 중'
+                            : '문제 풀이 중'}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="px-3.5 py-1.5 rounded-2xl bg-emerald-600 text-white font-black text-xs uppercase tracking-wider">
+                      문제 {room.currentQuestionIndex + 1} / {room.totalQuestions}
+                    </span>
+                    <span className="px-3.5 py-1.5 rounded-2xl bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200">
+                      {currentQuestion?.category}
+                    </span>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-2">
+                    {room.status === 'QUESTION' && (
+                      <span className="text-xs px-3.5 py-1.5 rounded-full bg-blue-100 text-blue-900 font-bold flex items-center gap-1.5 animate-pulse border border-blue-200">
+                        <Clock className="w-3.5 h-3.5 text-blue-600" />
+                        학생 답변 중 ({playersAnsweredCount}/{playerCount}명 완료)
+                      </span>
+                    )}
+                    {room.status === 'TAP_PHASE' && (
+                      <span className="text-xs px-3.5 py-1.5 rounded-full bg-rose-500 text-white font-black flex items-center gap-1.5 animate-bounce shadow-md shadow-rose-200">
+                        <Zap className="w-3.5 h-3.5" />
+                        ⚡ 3초 연타 시간! TAP TAP!
+                      </span>
+                    )}
+                    {room.status === 'ROUND_RESULT' && (
+                      <span className="text-xs px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-800 font-black border border-emerald-200">
+                        결과 집계 중 → 다음 문제 준비
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Big Question Prompt */}
+                <h2 className="text-2xl sm:text-3xl font-black text-emerald-950 font-['Jua'] leading-snug mb-6">
+                  {currentQuestion?.prompt}
+                </h2>
+
+                {/* 4 Choices Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                  {currentQuestion?.options.map((opt, idx) => {
+                    const isCorrect = idx === currentQuestion.correctIndex;
+                    const showAnswer = room.status === 'TAP_PHASE' || room.status === 'ROUND_RESULT';
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-4 rounded-2xl border-2 font-bold text-center text-sm transition-all flex flex-col items-center justify-center min-h-[72px] ${
+                          showAnswer && isCorrect
+                            ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg shadow-emerald-200 scale-102'
+                            : 'bg-slate-50 border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <span className="text-[10px] opacity-70 block mb-0.5 uppercase tracking-wider font-mono">
+                          Choice 0{idx + 1}
+                        </span>
+                        <span className="text-base">{opt}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
 
           {/* 100m Race Track Canvas Component */}
@@ -528,12 +604,12 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
 
           {/* Winning Character Centerpiece */}
           <div className="flex items-center justify-center gap-6 py-4">
-            {room.winner === 'A' && <BabyDragon size={120} isRunning={true} />}
-            {room.winner === 'B' && <BabyTiger size={120} isRunning={true} />}
+            {room.winner === 'A' && <BabyDragon size={260} variant="win" isRunning={true} />}
+            {room.winner === 'B' && <BabyTiger size={260} variant="win" isRunning={true} />}
             {room.winner === 'DRAW' && (
               <>
-                <BabyDragon size={80} isRunning={true} />
-                <BabyTiger size={80} isRunning={true} />
+                <BabyDragon size={190} variant="win" isRunning={true} />
+                <BabyTiger size={190} variant="win" isRunning={true} />
               </>
             )}
           </div>
@@ -542,8 +618,8 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl mx-auto text-left">
             <div className="bg-blue-50 rounded-2xl p-5 border border-blue-100 shadow-2xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-blue-950 text-sm font-['Jua'] flex items-center gap-1.5">
-                  <span>🐲</span> 용팀 (A팀) 성적
+                  <span className="font-bold text-blue-950 text-sm font-['Jua'] flex items-center gap-1.5">
+                  <BabyDragon size={38} variant="idle" /> 용팀 (A팀) 성적
                 </span>
                 <span className="font-mono text-base font-black text-blue-700">
                   {room.teamScores.A.distance}m
@@ -566,8 +642,8 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
 
             <div className="bg-orange-50 rounded-2xl p-5 border border-orange-100 shadow-2xs">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-bold text-orange-950 text-sm font-['Jua'] flex items-center gap-1.5">
-                  <span>🐯</span> 호랑이팀 (B팀) 성적
+                  <span className="font-bold text-orange-950 text-sm font-['Jua'] flex items-center gap-1.5">
+                  <BabyTiger size={38} variant="idle" /> 호랑이팀 (B팀) 성적
                 </span>
                 <span className="font-mono text-base font-black text-orange-700">
                   {room.teamScores.B.distance}m
