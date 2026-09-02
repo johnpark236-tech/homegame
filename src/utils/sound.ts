@@ -1,6 +1,21 @@
 // Zero-dependency Web Audio API synthesizer for adorable game sound effects
+type BackgroundTrack = 'intro' | 'waiting' | 'gameplay' | 'results';
+
+const BACKGROUND_TRACKS: Record<BackgroundTrack, string> = {
+  intro: '/assets/audio/bgm-intro.wav',
+  waiting: '/assets/audio/bgm-waiting.wav',
+  gameplay: '/assets/audio/bgm-gameplay.wav',
+  results: '/assets/audio/bgm-results.wav',
+};
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
+  private bgm: HTMLAudioElement | null = null;
+  private bgmTrack: BackgroundTrack | null = null;
+  private pendingTrack: BackgroundTrack | null = null;
+  private bgmFadeTimer: number | null = null;
+  private bgmVolume = 0.18;
+  private unlockListenersAttached = false;
 
   private init() {
     if (!this.ctx && typeof window !== 'undefined') {
@@ -12,6 +27,105 @@ class SoundEngine {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    this.playPendingBackground();
+  }
+
+  private attachUnlockListeners() {
+    if (this.unlockListenersAttached || typeof window === 'undefined') return;
+    this.unlockListenersAttached = true;
+
+    const unlock = () => {
+      this.init();
+      if (this.pendingTrack) {
+        this.playPendingBackground();
+      }
+    };
+
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock);
+  }
+
+  private clearBgmFade() {
+    if (this.bgmFadeTimer && typeof window !== 'undefined') {
+      window.clearInterval(this.bgmFadeTimer);
+      this.bgmFadeTimer = null;
+    }
+  }
+
+  private fadeVolume(target: number, durationMs = 450, onDone?: () => void) {
+    if (!this.bgm || typeof window === 'undefined') {
+      onDone?.();
+      return;
+    }
+
+    this.clearBgmFade();
+    const audio = this.bgm;
+    const startVolume = audio.volume;
+    const startTime = performance.now();
+
+    this.bgmFadeTimer = window.setInterval(() => {
+      const progress = Math.min(1, (performance.now() - startTime) / durationMs);
+      audio.volume = startVolume + (target - startVolume) * progress;
+
+      if (progress >= 1) {
+        this.clearBgmFade();
+        onDone?.();
+      }
+    }, 32);
+  }
+
+  private playPendingBackground() {
+    if (!this.pendingTrack || typeof window === 'undefined') return;
+    const track = this.pendingTrack;
+    this.pendingTrack = null;
+    this.setBackground(track);
+  }
+
+  setBackground(track: BackgroundTrack) {
+    try {
+      if (this.bgmTrack === track && this.bgm && !this.bgm.paused) return;
+      if (typeof window === 'undefined') return;
+      this.attachUnlockListeners();
+
+      const startTrack = () => {
+        const audio = new Audio(BACKGROUND_TRACKS[track]);
+        audio.loop = true;
+        audio.preload = 'auto';
+        audio.volume = 0;
+        audio.load();
+        this.bgm = audio;
+        this.bgmTrack = track;
+
+        audio.play()
+          .then(() => this.fadeVolume(this.bgmVolume, 650))
+          .catch(() => {
+            this.pendingTrack = track;
+          });
+      };
+
+      if (this.bgm && !this.bgm.paused) {
+        const previous = this.bgm;
+        this.fadeVolume(0, 350, () => {
+          previous.pause();
+          previous.currentTime = 0;
+          startTrack();
+        });
+      } else {
+        startTrack();
+      }
+    } catch {
+      this.pendingTrack = track;
+    }
+  }
+
+  stopBackground() {
+    this.clearBgmFade();
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
+    }
+    this.bgm = null;
+    this.bgmTrack = null;
   }
 
   // Button Click / Tap Pop

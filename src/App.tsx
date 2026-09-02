@@ -39,6 +39,12 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (viewMode === 'HOME') {
+      sound.setBackground('intro');
+    }
+  }, [viewMode]);
+
   // Handle Teacher Create Room Button
   const handleCreateRoom = async () => {
     setCreateError(null);

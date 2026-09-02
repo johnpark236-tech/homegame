@@ -138,6 +138,21 @@ export const StudentView: React.FC<StudentViewProps> = ({ initialRoomId = '' }) 
     };
   }, [joinedRoom?.roomId, player?.id]);
 
+  useEffect(() => {
+    if (!joinedRoom) {
+      sound.setBackground('intro');
+      return;
+    }
+
+    if (joinedRoom.status === 'WAITING') {
+      sound.setBackground('waiting');
+    } else if (joinedRoom.status === 'GAME_OVER') {
+      sound.setBackground('results');
+    } else {
+      sound.setBackground('gameplay');
+    }
+  }, [joinedRoom?.status]);
+
   // Periodic batch flush for local rapid taps (every 150ms)
   useEffect(() => {
     if (!joinedRoom || !canTapNow || !player || !player.isCorrect) {

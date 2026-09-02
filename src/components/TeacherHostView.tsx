@@ -83,6 +83,16 @@ export const TeacherHostView: React.FC<TeacherHostViewProps> = ({
     };
   }, [room.roomId]);
 
+  useEffect(() => {
+    if (room.status === 'WAITING') {
+      sound.setBackground('waiting');
+    } else if (room.status === 'GAME_OVER') {
+      sound.setBackground('results');
+    } else {
+      sound.setBackground('gameplay');
+    }
+  }, [room.status]);
+
   // Handle Game Start
   const handleStartGame = async () => {
     setErrorMsg(null);
